@@ -26,23 +26,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
 
     loop {
         tokio::select! {
-            _ = tick.tick() => {
-                tick_count = tick_count.wrapping_add(1);
-                for (addr, peer) in peers.iter_mut() {
-                    // About to send a new packet to this peer
-                    // Update the last sent sequence number
-                    peer.last_sent_seq = tick_count;
-
-                    let header = Header {
-                        seq: peer.last_sent_seq,
-                        ack: peer.last_ack,
-                        t_send_ns: now_ns(),
-                    };
-
-                    let header_enc = encode_to_vec(header, config::standard())?;
-                    let _ = socket.send_to(&header_enc, addr).await;
-                }
-            }
+            biased;
             Ok((n, addr)) = socket.recv_from(&mut buf) => {
                 let header: Header = decode_from_slice(&buf[..n], config::standard())?.0;
                 // check if this is a known peer
@@ -67,6 +51,23 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                         // there may be packet loss or reordering
                         peer.last_rtt_ms = now_ns() as f32 - header.t_send_ns as f32;
                     }
+                }
+            }
+            _ = tick.tick() => {
+                tick_count = tick_count.wrapping_add(1);
+                for (addr, peer) in peers.iter_mut() {
+                    // About to send a new packet to this peer
+                    // Update the last sent sequence number
+                    peer.last_sent_seq = tick_count;
+
+                    let header = Header {
+                        seq: peer.last_sent_seq,
+                        ack: peer.last_ack,
+                        t_send_ns: now_ns(),
+                    };
+
+                    let header_enc = encode_to_vec(header, config::standard())?;
+                    let _ = socket.send_to(&header_enc, addr).await;
                 }
             }
         }
