@@ -29,6 +29,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
             biased;
             Ok((n, addr)) = socket.recv_from(&mut buf) => {
                 let header: Header = decode_from_slice(&buf[..n], config::standard())?.0;
+                println!("Received from {}: {:?}", addr, header);
                 // check if this is a known peer
                 match peers.get_mut(&addr) {
                     None => {
@@ -67,6 +68,7 @@ pub async fn run() -> Result<(), Box<dyn Error>> {
                     };
 
                     let header_enc = encode_to_vec(header, config::standard())?;
+                    println!("Sending to {}: {:?}", addr, header);
                     let _ = socket.send_to(&header_enc, addr).await;
                 }
             }
